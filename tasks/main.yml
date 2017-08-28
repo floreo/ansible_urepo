@@ -1,0 +1,48 @@
+---
+
+- name: "Installing dependencies"
+  apt: 
+    name: "{{item}}"
+    state: installed
+  with_items:
+      - git 
+      - build-essential 
+      - nginx 
+      - fcgiwrap 
+      - createrepo
+      - ruby
+      - ruby-dev
+      - rubygems
+
+- name: "Installing FPM"
+  gem:
+    name: fpm
+    user_install: no
+
+- name: "Clone urepo"
+  git:
+    repo: https://github.com/hulu/urepo.git
+    dest: /usr/local/src/urepo
+    update: no
+
+- name: "Check if it was already previously built"
+  stat:
+    path: "/usr/local/src/urepo/build"
+  register: ansible_urepo_built
+
+- name: "Building urepo's deb"
+  make:
+    chdir: /usr/local/src/urepo
+    target: pkg
+  when: ansible_urepo_built.stat.exists == false
+
+- name: "Find correct urepo_*.deb"
+  find:
+    paths: "/usr/local/src/urepo/build"
+    patterns: "urepo_*.deb"
+  register: ansible_urepo_find
+
+- name: "Installing urepo.deb"
+  apt:
+    deb: "{{ansible_urepo_find.files[0].path}}"
+  when: ansible_urepo_find.files[0].path is defined
